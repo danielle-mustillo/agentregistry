@@ -333,17 +333,34 @@ func (c *PluginController) reconcile(ctx context.Context, p *v1alpha1.Plugin) (s
 		return "", "", err // retryable
 	}
 
-	manifest, err := bundle.ParseManifest(b)
+	manifests, err := bundle.ParseManifests(b)
 	if err != nil {
 		return "failed", "SourceInvalid", c.patchStatus(ctx, ns, name, tag, gen, func(st *v1alpha1.PluginStatus) {
 			setReady(st, v1alpha1.ConditionFalse, "SourceInvalid", err.Error())
 		})
 	}
 	inventory := bundle.BuildInventory(b)
+	formats := bundle.DetectFormats(b)
+	// Computed from THIS scan only. Asking the patched status would consult its
+	// deprecated-Manifest fallback and resurrect the previous scan's manifest
+	// for a bundle that has since removed it.
+	preferredManifest := v1alpha1.PluginStatus{Manifests: manifests}.PreferredManifest()
+	if len(formats) == 0 {
+		// Not a failure. Deploy-time gates admit an unrecognized bundle rather
+		// than break sources that resolve fine today; the warning is the only
+		// signal that its layout was not understood.
+		logger.Warn("plugin bundle format not recognized",
+			"namespace", ns, "name", name, "tag", tag)
+	}
 
 	return "resolved", "", c.patchStatus(ctx, ns, name, tag, gen, func(st *v1alpha1.PluginStatus) {
 		st.ResolvedSource = resolved
-		st.Manifest = manifest
+		st.Formats = formats
+		st.Manifests = manifests
+		// Deprecated field, populated deliberately for one release so existing
+		// consumers keep working while they migrate to Manifests.
+		st.Manifest = preferredManifest //nolint:staticcheck // SA1019: deprecation window
+		st.MCPServerFiles = bundle.DetectMCPFiles(b)
 		st.Inventory = inventory
 		setReady(st, v1alpha1.ConditionTrue, "Resolved", "")
 	})

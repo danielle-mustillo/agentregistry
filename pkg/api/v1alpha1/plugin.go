@@ -35,10 +35,14 @@ type PluginSpec struct {
 	// absolute https:// URL or a root-relative path served by the UI.
 	IconURL string `json:"iconUrl,omitempty" yaml:"iconUrl,omitempty"`
 
-	// Harnesses lists the harness formats this bundle carries native manifests
-	// for (e.g. "claude-code", "codex"). It is informational in this phase;
-	// deploy-time adapters decide which harnesses they can consume.
-	Harnesses []string `json:"harnesses,omitempty" yaml:"harnesses,omitempty"`
+	// Harnesses is retained for one release so existing Plugin resources
+	// continue to decode and round-trip without data loss.
+	//
+	// Deprecated: bundle format is server-derived, not user-declared. The
+	// controller scans the source and records what it found in
+	// status.formats; deploy-time adapters gate on that. This field informs
+	// no decision and is removed in the next release.
+	Harnesses []string `json:"harnesses,omitempty" yaml:"harnesses,omitempty" deprecated:"true"`
 
 	// Source is where the bundle is ingested from, pinned (git commit / OCI
 	// digest) so a published tag is reproducible.
@@ -62,11 +66,81 @@ type PluginStatus struct {
 	// ResolvedSource is the controller's immutable pin of the user's source
 	// pointer (the concrete commit/digest the source resolved to).
 	ResolvedSource *PluginResolvedSource `json:"resolvedSource,omitempty" yaml:"resolvedSource,omitempty"`
-	// Manifest is the canonical typed plugin.json parsed from the source.
-	Manifest *PluginManifest `json:"manifest,omitempty" yaml:"manifest,omitempty"`
+	// Formats are the bundle layouts the controller detected in the source,
+	// sorted and deduplicated. A bundle may honestly be more than one format:
+	// the agent-plugins spec permits third-party directories such as
+	// .claude-plugin/, so a source shipping both manifests is both. An empty
+	// list means nothing recognizable was found — that is a warning, not a
+	// failure, and deploy-time gates must let it through.
+	Formats []string `json:"formats,omitempty" yaml:"formats,omitempty"`
+	// Manifests are the parsed manifests keyed by the format they were read
+	// from (see PluginFormat*). A dual-format bundle records both, losslessly.
+	Manifests map[string]*PluginManifest `json:"manifests,omitempty" yaml:"manifests,omitempty"`
+	// Manifest is the canonical typed plugin.json parsed from the source,
+	// preferring the claude-plugin location when the bundle ships both.
+	//
+	// Deprecated: superseded by Manifests, which is lossless for dual-format
+	// bundles. Retained for one release; removed in the next.
+	Manifest *PluginManifest `json:"manifest,omitempty" yaml:"manifest,omitempty" deprecated:"true"`
+	// MCPServerFiles are the MCP declaration files the bundle actually ships,
+	// sorted — ".mcp.json" (claude-plugin) and/or "mcp.json" (agent-plugins).
+	//
+	// Inventory.MCPServers merges both files into one list, which is the right
+	// answer for "what does this plugin declare" and the wrong one for "will
+	// this target start them": a harness reads one filename, not both. Deploy
+	// gates need the provenance the merged list discards, so it is recorded
+	// separately rather than reconstructed.
+	MCPServerFiles []string `json:"mcpServerFiles,omitempty" yaml:"mcpServerFiles,omitempty"`
 	// Inventory is the server-derived risk surface / search index.
 	Inventory *PluginInventory `json:"inventory,omitempty" yaml:"inventory,omitempty"`
 }
+
+// PreferredManifest returns the one manifest a single-manifest consumer should
+// use, favouring claude-plugin because that is the format every current harness
+// consumes. Returns nil when the bundle shipped no manifest.
+//
+// Prefer this over reading Manifests directly unless the caller genuinely cares
+// which format it got.
+//
+// It falls back to the deprecated single Manifest field, which is what makes
+// the deprecation window safe: Plugins persisted before this release carry
+// manifest but not manifests, and would otherwise read as manifest-less until
+// the controller happened to reconcile them again.
+func (s PluginStatus) PreferredManifest() *PluginManifest {
+	for _, format := range []string{PluginFormatClaudePlugin, PluginFormatAgentPlugins} {
+		if m, ok := s.Manifests[format]; ok {
+			return m
+		}
+	}
+	return s.Manifest
+}
+
+// Plugin bundle formats recorded in PluginStatus.Formats. Which formats a
+// deploy target can actually consume is a deploy-time concern owned by the
+// runtime adapters, not by this package.
+const (
+	// PluginFormatClaudePlugin is the Claude Code plugin layout: a
+	// .claude-plugin/plugin.json manifest (optional — Claude auto-discovers
+	// from skills/, commands/, agents/, hooks/hooks.json, .mcp.json) and MCP
+	// servers in .mcp.json.
+	PluginFormatClaudePlugin = "claude-plugin"
+	// PluginFormatAgentPlugins is the Agent Plugins layout: a mandatory root
+	// plugin.json carrying an agent-plugins $schema, and MCP servers in
+	// mcp.json.
+	PluginFormatAgentPlugins = "agent-plugins"
+)
+
+// MCP declaration filenames recorded in PluginStatus.MCPServerFiles. Part of
+// the public status contract: deploy targets outside this repo compare against
+// these to decide whether they will actually start a bundle's servers.
+const (
+	// PluginMCPFileClaudePlugin is where the claude-plugin format declares MCP
+	// servers. Every current harness reads this file and only this file.
+	PluginMCPFileClaudePlugin = ".mcp.json"
+	// PluginMCPFileAgentPlugins is where the agent-plugins format declares MCP
+	// servers. Same {"mcpServers": {…}} shape, different filename.
+	PluginMCPFileAgentPlugins = "mcp.json"
+)
 
 // PluginResolvedSource records the concrete, immutable revision the controller
 // pinned the user's source pointer to. Exactly one of Commit/Digest is set,

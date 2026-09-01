@@ -40,10 +40,15 @@ type AgentSpec struct {
 	// container) and/or Repository (the source code).
 	Source *AgentSource `json:"source,omitempty" yaml:"source,omitempty"`
 
-	// CompatibleHarnesses declares which coding harnesses this Agent can run
-	// under. The Deployment selects the concrete harness type for a
-	// rollout; Agent remains the portable compatibility contract.
-	CompatibleHarnesses []HarnessCompatibility `json:"compatibleHarnesses,omitempty" yaml:"compatibleHarnesses,omitempty"`
+	// CompatibleHarnesses is retained for one release so existing Agent
+	// resources continue to decode and round-trip without data loss.
+	//
+	// Deprecated: plugin format compatibility is owned by the Plugin, not the
+	// Agent. The Plugin controller records the bundle formats it detected in
+	// status.formats, and the deploy target gates on those. This field is
+	// removed in the next release; see the write-time check in
+	// agent_validate.go, which moves to deploy time with it.
+	CompatibleHarnesses []HarnessCompatibility `json:"compatibleHarnesses,omitempty" yaml:"compatibleHarnesses,omitempty" deprecated:"true"`
 
 	// Composition — top-level, harness-agnostic references to what the agent
 	// is assembled from. The selected Deployment harness materializes what it

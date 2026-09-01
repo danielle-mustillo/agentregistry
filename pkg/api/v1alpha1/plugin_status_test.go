@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 )
 
@@ -11,6 +12,12 @@ func TestPluginStatusRoundTrip(t *testing.T) {
 	in.Status.SetCondition(Condition{Type: "Ready", Status: ConditionTrue, Reason: "Resolved"})
 	in.Status.ResolvedSource = &PluginResolvedSource{Type: PluginSourceTypeGit, Commit: "abc123"}
 	in.Status.Manifest = &PluginManifest{Name: "deploy", Version: "1.2.0"}
+	in.Status.Formats = []string{PluginFormatAgentPlugins, PluginFormatClaudePlugin}
+	in.Status.Manifests = map[string]*PluginManifest{
+		PluginFormatClaudePlugin: {Name: "deploy", Version: "1.2.0"},
+		PluginFormatAgentPlugins: {Name: "deploy", Version: "2.0.0"},
+	}
+	in.Status.MCPServerFiles = []string{".mcp.json", "mcp.json"}
 	in.Status.Inventory = &PluginInventory{Skills: []PluginSkill{{Name: "deploy", Description: "Deploys"}}}
 
 	raw, err := in.MarshalStatus()
@@ -38,6 +45,20 @@ func TestPluginStatusRoundTrip(t *testing.T) {
 	if out.Status.Inventory == nil || len(out.Status.Inventory.Skills) != 1 || out.Status.Inventory.Skills[0].Name != "deploy" {
 		t.Errorf("inventory did not round-trip: %+v", out.Status.Inventory)
 	}
+	// The Plugin status codec is hand-written with an explicit key list, so a
+	// new field that is not added to BOTH halves silently never persists.
+	if !slices.Equal(out.Status.Formats, []string{PluginFormatAgentPlugins, PluginFormatClaudePlugin}) {
+		t.Errorf("formats did not round-trip: %v", out.Status.Formats)
+	}
+	if len(out.Status.Manifests) != 2 {
+		t.Fatalf("manifests did not round-trip: %+v", out.Status.Manifests)
+	}
+	if got := out.Status.Manifests[PluginFormatAgentPlugins].Version; got != "2.0.0" {
+		t.Errorf("agent-plugins manifest version = %q, want 2.0.0", got)
+	}
+	if !slices.Equal(out.Status.MCPServerFiles, []string{".mcp.json", "mcp.json"}) {
+		t.Errorf("mcpServerFiles did not round-trip: %v", out.Status.MCPServerFiles)
+	}
 }
 
 // TestPluginStatusOmitsNilCustomFields guards the patch-skip byte-stability
@@ -54,7 +75,7 @@ func TestPluginStatusOmitsNilCustomFields(t *testing.T) {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	for _, k := range []string{"resolvedSource", "manifest", "inventory"} {
+	for _, k := range []string{"resolvedSource", "manifest", "manifests", "formats", "mcpServerFiles", "inventory"} {
 		if _, ok := m[k]; ok {
 			t.Errorf("nil %q must be omitted, got key in %s", k, string(raw))
 		}

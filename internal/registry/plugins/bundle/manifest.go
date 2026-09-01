@@ -13,21 +13,53 @@ import (
 	"github.com/agentregistry-dev/agentregistry/pkg/api/v1alpha1"
 )
 
-// ManifestPath is the canonical location of the plugin manifest within a bundle.
-const ManifestPath = ".claude-plugin/plugin.json"
-
-// ParseManifest parses the bundle's real .claude-plugin/plugin.json into the
-// typed, faithful PluginManifest (the canonical lingua-franca manifest).
-// Returns (nil, nil) when the bundle ships no manifest, or (nil, err) when the
-// manifest is present but malformed (the caller decides whether to fail).
-func ParseManifest(b *CanonicalBundle) (*v1alpha1.PluginManifest, error) {
-	data, ok := b.Files[ManifestPath]
-	if !ok {
+// ParseManifests parses every manifest the bundle ships into the typed,
+// faithful PluginManifest, keyed by the format it was read from. A dual-format
+// bundle yields both entries, losslessly. Returns (nil, nil) when the bundle
+// ships no manifest, or (nil, err) when a manifest is present but malformed
+// (the caller decides whether to fail).
+//
+// The agent-plugins manifest is read only when its $schema identifies it as
+// one. Unguarded, an unrelated root plugin.json — common in other ecosystems —
+// would fail to parse and flip a resolvable Plugin to Ready=False/SourceInvalid.
+func ParseManifests(b *CanonicalBundle) (map[string]*v1alpha1.PluginManifest, error) {
+	out := map[string]*v1alpha1.PluginManifest{}
+	if data, ok := b.Files[ClaudeManifestPath]; ok {
+		m, err := unmarshalManifest(data, ClaudeManifestPath)
+		if err != nil {
+			return nil, err
+		}
+		out[v1alpha1.PluginFormatClaudePlugin] = m
+	}
+	if data, ok := b.Files[AgentPluginsManifestPath]; ok && isAgentPluginsManifest(data) {
+		m, err := unmarshalManifest(data, AgentPluginsManifestPath)
+		if err != nil {
+			return nil, err
+		}
+		out[v1alpha1.PluginFormatAgentPlugins] = m
+	}
+	if len(out) == 0 {
 		return nil, nil
 	}
+	return out, nil
+}
+
+// ParseManifest returns the single preferred manifest, favouring the
+// claude-plugin location when the bundle ships both.
+//
+// Deprecated: use ParseManifests, which is lossless for dual-format bundles.
+func ParseManifest(b *CanonicalBundle) (*v1alpha1.PluginManifest, error) {
+	manifests, err := ParseManifests(b)
+	if err != nil {
+		return nil, err
+	}
+	return v1alpha1.PluginStatus{Manifests: manifests}.PreferredManifest(), nil
+}
+
+func unmarshalManifest(data []byte, atPath string) (*v1alpha1.PluginManifest, error) {
 	var m v1alpha1.PluginManifest
 	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, fmt.Errorf("%w: parse %s: %v", ErrInvalidBundle, ManifestPath, err)
+		return nil, fmt.Errorf("%w: parse %s: %v", ErrInvalidBundle, atPath, err)
 	}
 	return &m, nil
 }
@@ -56,9 +88,7 @@ func BuildInventory(b *CanonicalBundle) *v1alpha1.PluginInventory {
 			m.Executables = append(m.Executables, strings.TrimPrefix(p, "bin/"))
 		}
 	}
-	if data, ok := b.Files[".mcp.json"]; ok {
-		m.MCPServers = parseMCPServers(data)
-	}
+	m.MCPServers = buildMCPServerUnion(b)
 	if data, ok := b.Files["hooks/hooks.json"]; ok {
 		m.Hooks = parseHooks(data)
 	}
@@ -87,7 +117,31 @@ func parseSkillFrontmatter(content []byte) (name, desc string) {
 	return meta.Name, meta.Description
 }
 
-// parseMCPServers returns the sorted server names declared in a .mcp.json file.
+// buildMCPServerUnion returns the deduplicated, sorted union of the server
+// names declared in both MCP files: .mcp.json (claude-plugin) and mcp.json
+// (agent-plugins). The inventory reports what the bundle DECLARES; whether a
+// given deploy target will actually start those servers is the deploy-time
+// gate's question, not the inventory's.
+func buildMCPServerUnion(b *CanonicalBundle) []string {
+	seen := map[string]bool{}
+	var names []string
+	for _, p := range []string{ClaudeMCPPath, AgentPluginsMCPPath} {
+		data, ok := b.Files[p]
+		if !ok {
+			continue
+		}
+		for _, name := range parseMCPServers(data) {
+			if !seen[name] {
+				seen[name] = true
+				names = append(names, name)
+			}
+		}
+	}
+	slices.Sort(names)
+	return names
+}
+
+// parseMCPServers returns the sorted server names declared in an MCP file.
 func parseMCPServers(data []byte) []string {
 	var doc struct {
 		MCPServers map[string]json.RawMessage `json:"mcpServers"`

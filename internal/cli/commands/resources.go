@@ -150,7 +150,10 @@ func agentRow(agent *v1alpha1.Agent) []string {
 
 func agentDisplayMode(spec v1alpha1.AgentSpec) string {
 	hasSource := spec.Source != nil && (spec.Source.Image != "" || spec.Source.Repository != nil)
-	hasHarness := len(spec.CompatibleHarnesses) > 0
+	// Deprecated field, read deliberately for one release: the MODE column
+	// keeps its current meaning until wave two recomputes it from what the
+	// Agent actually references (plugins/skills/instructions).
+	hasHarness := len(spec.CompatibleHarnesses) > 0 //nolint:staticcheck // SA1019: deprecation window
 	switch {
 	case hasSource && hasHarness:
 		return "source+harness"

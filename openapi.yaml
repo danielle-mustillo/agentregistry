@@ -37,6 +37,7 @@ components:
       additionalProperties: false
       properties:
         compatibleHarnesses:
+          deprecated: true
           items:
             $ref: '#/components/schemas/HarnessCompatibility'
           type:
@@ -1296,6 +1297,7 @@ components:
         description:
           type: string
         harnesses:
+          deprecated: true
           items:
             type: string
           type:
@@ -1318,10 +1320,27 @@ components:
           - array
           - "null"
         details: {}
+        formats:
+          items:
+            type: string
+          type:
+          - array
+          - "null"
         inventory:
           $ref: '#/components/schemas/PluginInventory'
         manifest:
           $ref: '#/components/schemas/PluginManifest'
+          deprecated: true
+        manifests:
+          additionalProperties:
+            $ref: '#/components/schemas/PluginManifest'
+          type: object
+        mcpServerFiles:
+          items:
+            type: string
+          type:
+          - array
+          - "null"
         resolvedSource:
           $ref: '#/components/schemas/PluginResolvedSource'
       type: object

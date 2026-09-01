@@ -19,6 +19,9 @@ export type AgentSource = {
 };
 
 export type AgentSpec = {
+    /**
+     * @deprecated
+     */
     compatibleHarnesses?: Array<HarnessCompatibility> | null;
     description?: string;
     iconUrl?: string;
@@ -603,6 +606,9 @@ export type PluginSourceOci = {
 
 export type PluginSpec = {
     description?: string;
+    /**
+     * @deprecated
+     */
     harnesses?: Array<string> | null;
     iconUrl?: string;
     source?: PluginSource;
@@ -612,8 +618,16 @@ export type PluginSpec = {
 export type PluginStatus = {
     conditions?: Array<Condition> | null;
     details?: unknown;
+    formats?: Array<string> | null;
     inventory?: PluginInventory;
+    /**
+     * @deprecated
+     */
     manifest?: PluginManifest;
+    manifests?: {
+        [key: string]: PluginManifest;
+    };
+    mcpServerFiles?: Array<string> | null;
     resolvedSource?: PluginResolvedSource;
 };
 

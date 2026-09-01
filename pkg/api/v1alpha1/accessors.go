@@ -203,8 +203,23 @@ func (p *Plugin) MarshalStatus() (json.RawMessage, error) {
 			return nil, err
 		}
 	}
+	if len(p.Status.Formats) > 0 {
+		if m["formats"], err = json.Marshal(p.Status.Formats); err != nil {
+			return nil, err
+		}
+	}
+	if len(p.Status.Manifests) > 0 {
+		if m["manifests"], err = json.Marshal(p.Status.Manifests); err != nil {
+			return nil, err
+		}
+	}
 	if p.Status.Manifest != nil {
 		if m["manifest"], err = json.Marshal(p.Status.Manifest); err != nil {
+			return nil, err
+		}
+	}
+	if len(p.Status.MCPServerFiles) > 0 {
+		if m["mcpServerFiles"], err = json.Marshal(p.Status.MCPServerFiles); err != nil {
 			return nil, err
 		}
 	}
@@ -225,14 +240,20 @@ func (p *Plugin) UnmarshalStatus(data json.RawMessage) error {
 		return err
 	}
 	var custom struct {
-		ResolvedSource *PluginResolvedSource `json:"resolvedSource"`
-		Manifest       *PluginManifest       `json:"manifest"`
-		Inventory      *PluginInventory      `json:"inventory"`
+		ResolvedSource *PluginResolvedSource      `json:"resolvedSource"`
+		Formats        []string                   `json:"formats"`
+		Manifests      map[string]*PluginManifest `json:"manifests"`
+		Manifest       *PluginManifest            `json:"manifest"`
+		MCPServerFiles []string                   `json:"mcpServerFiles"`
+		Inventory      *PluginInventory           `json:"inventory"`
 	}
 	if err := json.Unmarshal(data, &custom); err != nil {
 		return err
 	}
-	p.Status.ResolvedSource, p.Status.Manifest, p.Status.Inventory = custom.ResolvedSource, custom.Manifest, custom.Inventory
+	p.Status.ResolvedSource, p.Status.Inventory = custom.ResolvedSource, custom.Inventory
+	p.Status.Formats, p.Status.Manifests = custom.Formats, custom.Manifests
+	p.Status.MCPServerFiles = custom.MCPServerFiles
+	p.Status.Manifest = custom.Manifest
 	return nil
 }
 

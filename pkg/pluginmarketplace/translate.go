@@ -68,10 +68,12 @@ func FromPlugin(p *v1alpha1.Plugin) (PluginEntry, error) {
 	}
 
 	entry := PluginEntry{Name: qualifiedName(p.Metadata.NamespaceOrDefault(), p.Metadata.Name), Source: source}
-	if p.Status.Manifest != nil {
-		entry.Description = p.Status.Manifest.Description
+	// A Claude Code marketplace, so the claude-plugin manifest is the right
+	// one; PreferredManifest falls back to agent-plugins for its metadata.
+	if manifest := p.Status.PreferredManifest(); manifest != nil {
+		entry.Description = manifest.Description
 		// Left empty if unset; Claude Code falls back to the resolved SHA.
-		entry.Version = p.Status.Manifest.Version
+		entry.Version = manifest.Version
 	} else {
 		entry.Description = p.Spec.Description
 	}
