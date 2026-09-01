@@ -11,7 +11,6 @@ func TestPluginStatusRoundTrip(t *testing.T) {
 	in.Status.ObservedGeneration = 5
 	in.Status.SetCondition(Condition{Type: "Ready", Status: ConditionTrue, Reason: "Resolved"})
 	in.Status.ResolvedSource = &PluginResolvedSource{Type: PluginSourceTypeGit, Commit: "abc123"}
-	in.Status.Manifest = &PluginManifest{Name: "deploy", Version: "1.2.0"}
 	in.Status.Formats = []string{PluginFormatAgentPlugins, PluginFormatClaudePlugin}
 	in.Status.Manifests = map[string]*PluginManifest{
 		PluginFormatClaudePlugin: {Name: "deploy", Version: "1.2.0"},
@@ -39,9 +38,6 @@ func TestPluginStatusRoundTrip(t *testing.T) {
 	if out.Status.ResolvedSource == nil || out.Status.ResolvedSource.Commit != "abc123" || out.Status.ResolvedSource.Type != PluginSourceTypeGit {
 		t.Errorf("resolvedSource did not round-trip: %+v", out.Status.ResolvedSource)
 	}
-	if out.Status.Manifest == nil || out.Status.Manifest.Name != "deploy" || out.Status.Manifest.Version != "1.2.0" {
-		t.Errorf("manifest did not round-trip: %+v", out.Status.Manifest)
-	}
 	if out.Status.Inventory == nil || len(out.Status.Inventory.Skills) != 1 || out.Status.Inventory.Skills[0].Name != "deploy" {
 		t.Errorf("inventory did not round-trip: %+v", out.Status.Inventory)
 	}
@@ -58,6 +54,37 @@ func TestPluginStatusRoundTrip(t *testing.T) {
 	}
 	if !slices.Equal(out.Status.MCPServerFiles, []string{".mcp.json", "mcp.json"}) {
 		t.Errorf("mcpServerFiles did not round-trip: %v", out.Status.MCPServerFiles)
+	}
+}
+
+// TestPluginStatusAdoptsLegacyManifestKey covers the one-way migration: a
+// status persisted before status.manifest was removed carries that key and no
+// manifests, and the writer never emits it again. Without the adoption the
+// marketplace silently loses the plugin's description and version until the
+// controller happens to re-reconcile it.
+func TestPluginStatusAdoptsLegacyManifestKey(t *testing.T) {
+	stored := `{"manifest":{"name":"deploy","version":"1.2.0"}}`
+
+	p := &Plugin{}
+	if err := p.UnmarshalStatus([]byte(stored)); err != nil {
+		t.Fatalf("UnmarshalStatus: %v", err)
+	}
+	got := p.Status.PreferredManifest()
+	if got == nil || got.Version != "1.2.0" {
+		t.Fatalf("legacy manifest not adopted: %+v", p.Status.Manifests)
+	}
+	if _, ok := p.Status.Manifests[PluginFormatClaudePlugin]; !ok {
+		t.Errorf("legacy manifest must key as %q, got %+v", PluginFormatClaudePlugin, p.Status.Manifests)
+	}
+
+	// A fresh status wins: adoption must never overwrite a real scan result.
+	both := `{"manifest":{"name":"old","version":"0.1.0"},"manifests":{"claude-plugin":{"name":"new","version":"2.0.0"}}}`
+	q := &Plugin{}
+	if err := q.UnmarshalStatus([]byte(both)); err != nil {
+		t.Fatalf("UnmarshalStatus: %v", err)
+	}
+	if got := q.Status.PreferredManifest(); got == nil || got.Version != "2.0.0" {
+		t.Fatalf("manifests must win over the legacy key, got %+v", got)
 	}
 }
 

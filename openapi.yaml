@@ -36,13 +36,6 @@ components:
     AgentSpec:
       additionalProperties: false
       properties:
-        compatibleHarnesses:
-          deprecated: true
-          items:
-            $ref: '#/components/schemas/HarnessCompatibility'
-          type:
-          - array
-          - "null"
         description:
           type: string
         iconUrl:
@@ -295,14 +288,6 @@ components:
           type: string
       required:
       - name
-      type: object
-    HarnessCompatibility:
-      additionalProperties: false
-      properties:
-        type:
-          type: string
-      required:
-      - type
       type: object
     HealthBody:
       additionalProperties: false
@@ -1296,13 +1281,6 @@ components:
       properties:
         description:
           type: string
-        harnesses:
-          deprecated: true
-          items:
-            type: string
-          type:
-          - array
-          - "null"
         iconUrl:
           type: string
         source:
@@ -1328,9 +1306,6 @@ components:
           - "null"
         inventory:
           $ref: '#/components/schemas/PluginInventory'
-        manifest:
-          $ref: '#/components/schemas/PluginManifest'
-          deprecated: true
         manifests:
           additionalProperties:
             $ref: '#/components/schemas/PluginManifest'

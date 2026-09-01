@@ -19,10 +19,6 @@ export type AgentSource = {
 };
 
 export type AgentSpec = {
-    /**
-     * @deprecated
-     */
-    compatibleHarnesses?: Array<HarnessCompatibility> | null;
     description?: string;
     iconUrl?: string;
     instructions?: ResourceRef;
@@ -157,10 +153,6 @@ export type ErrorModel = {
 export type HttpHeader = {
     name: string;
     value?: string;
-};
-
-export type HarnessCompatibility = {
-    type: string;
 };
 
 export type HealthBody = {
@@ -606,10 +598,6 @@ export type PluginSourceOci = {
 
 export type PluginSpec = {
     description?: string;
-    /**
-     * @deprecated
-     */
-    harnesses?: Array<string> | null;
     iconUrl?: string;
     source?: PluginSource;
     title?: string;
@@ -620,10 +608,6 @@ export type PluginStatus = {
     details?: unknown;
     formats?: Array<string> | null;
     inventory?: PluginInventory;
-    /**
-     * @deprecated
-     */
-    manifest?: PluginManifest;
     manifests?: {
         [key: string]: PluginManifest;
     };

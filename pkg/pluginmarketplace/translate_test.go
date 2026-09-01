@@ -37,7 +37,7 @@ func TestFromPlugin_ReadyPlainGit(t *testing.T) {
 		Status: v1alpha1.PluginStatus{
 			Status:         readyCondition(),
 			ResolvedSource: &v1alpha1.PluginResolvedSource{Type: v1alpha1.PluginSourceTypeGit, Commit: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"},
-			Manifest:       &v1alpha1.PluginManifest{Name: "code-formatter", Version: "1.2.0", Description: "Formats code on save"},
+			Manifests:      map[string]*v1alpha1.PluginManifest{v1alpha1.PluginFormatClaudePlugin: {Name: "code-formatter", Version: "1.2.0", Description: "Formats code on save"}},
 		},
 	}
 
@@ -211,7 +211,7 @@ func TestFromPlugin_ManifestDescriptionOverridesSpec(t *testing.T) {
 		Status: v1alpha1.PluginStatus{
 			Status:         readyCondition(),
 			ResolvedSource: &v1alpha1.PluginResolvedSource{Type: v1alpha1.PluginSourceTypeGit, Commit: "0123456789abcdef0123456789abcdef01234567"},
-			Manifest:       &v1alpha1.PluginManifest{Name: "has-manifest", Version: "2.0.0", Description: "manifest-level description"},
+			Manifests:      map[string]*v1alpha1.PluginManifest{v1alpha1.PluginFormatClaudePlugin: {Name: "has-manifest", Version: "2.0.0", Description: "manifest-level description"}},
 		},
 	}
 

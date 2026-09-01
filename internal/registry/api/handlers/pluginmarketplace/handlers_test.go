@@ -110,7 +110,7 @@ func TestGetMarketplace_TranslatesReadyPlugins(t *testing.T) {
 		v1alpha1.PluginStatus{
 			Status:         readyCondition(),
 			ResolvedSource: &v1alpha1.PluginResolvedSource{Type: v1alpha1.PluginSourceTypeGit, Commit: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"},
-			Manifest:       &v1alpha1.PluginManifest{Name: "code-formatter", Version: "1.2.0", Description: "Formats code on save"},
+			Manifests:      map[string]*v1alpha1.PluginManifest{v1alpha1.PluginFormatClaudePlugin: {Name: "code-formatter", Version: "1.2.0", Description: "Formats code on save"}},
 		})
 
 	notReady := rawPlugin(t, "default", "still-resolving",
@@ -189,7 +189,7 @@ func TestGetMarketplace_CrossNamespaceNameCollision(t *testing.T) {
 		v1alpha1.PluginStatus{
 			Status:         readyCondition(),
 			ResolvedSource: &v1alpha1.PluginResolvedSource{Type: v1alpha1.PluginSourceTypeGit, Commit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-			Manifest:       &v1alpha1.PluginManifest{Name: "code-formatter", Version: "1.0.0", Description: "Team A's formatter"},
+			Manifests:      map[string]*v1alpha1.PluginManifest{v1alpha1.PluginFormatClaudePlugin: {Name: "code-formatter", Version: "1.0.0", Description: "Team A's formatter"}},
 		})
 
 	teamB := rawPlugin(t, "team-b", "code-formatter",
@@ -205,7 +205,7 @@ func TestGetMarketplace_CrossNamespaceNameCollision(t *testing.T) {
 		v1alpha1.PluginStatus{
 			Status:         readyCondition(),
 			ResolvedSource: &v1alpha1.PluginResolvedSource{Type: v1alpha1.PluginSourceTypeGit, Commit: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
-			Manifest:       &v1alpha1.PluginManifest{Name: "code-formatter", Version: "2.0.0", Description: "Team B's formatter"},
+			Manifests:      map[string]*v1alpha1.PluginManifest{v1alpha1.PluginFormatClaudePlugin: {Name: "code-formatter", Version: "2.0.0", Description: "Team B's formatter"}},
 		})
 
 	store := &fakeStore{rows: []*v1alpha1.RawObject{teamA, teamB}}
@@ -245,7 +245,7 @@ func TestGetMarketplace_QualifiedNameCollisionDedupsToFirst(t *testing.T) {
 		v1alpha1.PluginStatus{
 			Status:         readyCondition(),
 			ResolvedSource: &v1alpha1.PluginResolvedSource{Type: v1alpha1.PluginSourceTypeGit, Commit: "1111111111111111111111111111111111111111"},
-			Manifest:       &v1alpha1.PluginManifest{Name: "a.b", Version: "1.0.0", Description: "First, from namespace team"},
+			Manifests:      map[string]*v1alpha1.PluginManifest{v1alpha1.PluginFormatClaudePlugin: {Name: "a.b", Version: "1.0.0", Description: "First, from namespace team"}},
 		})
 
 	second := rawPlugin(t, "team.a", "b",
@@ -261,7 +261,7 @@ func TestGetMarketplace_QualifiedNameCollisionDedupsToFirst(t *testing.T) {
 		v1alpha1.PluginStatus{
 			Status:         readyCondition(),
 			ResolvedSource: &v1alpha1.PluginResolvedSource{Type: v1alpha1.PluginSourceTypeGit, Commit: "2222222222222222222222222222222222222222"},
-			Manifest:       &v1alpha1.PluginManifest{Name: "b", Version: "2.0.0", Description: "Second, from namespace team.a"},
+			Manifests:      map[string]*v1alpha1.PluginManifest{v1alpha1.PluginFormatClaudePlugin: {Name: "b", Version: "2.0.0", Description: "Second, from namespace team.a"}},
 		})
 
 	store := &fakeStore{rows: []*v1alpha1.RawObject{first, second}}

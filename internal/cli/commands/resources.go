@@ -148,12 +148,14 @@ func agentRow(agent *v1alpha1.Agent) []string {
 	}
 }
 
+// agentDisplayMode answers "what does deploying this Agent need?" — a source
+// image/repository, a harness, or both. The harness half is derived from the
+// Agent's own composition refs rather than a declared field: plugins, skills,
+// and instructions are exactly what a harness materializes, so referencing any
+// of them means a Deployment will have to name one.
 func agentDisplayMode(spec v1alpha1.AgentSpec) string {
 	hasSource := spec.Source != nil && (spec.Source.Image != "" || spec.Source.Repository != nil)
-	// Deprecated field, read deliberately for one release: the MODE column
-	// keeps its current meaning until wave two recomputes it from what the
-	// Agent actually references (plugins/skills/instructions).
-	hasHarness := len(spec.CompatibleHarnesses) > 0 //nolint:staticcheck // SA1019: deprecation window
+	hasHarness := len(spec.Plugins) > 0 || len(spec.Skills) > 0 || spec.Instructions != nil
 	switch {
 	case hasSource && hasHarness:
 		return "source+harness"

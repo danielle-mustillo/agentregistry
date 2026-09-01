@@ -59,12 +59,12 @@ func TestOutputSchemaFor_AcceptsPluginCommands(t *testing.T) {
 	p := &v1alpha1.Plugin{
 		Metadata: v1alpha1.ObjectMeta{Namespace: "default", Name: "test-plugin"},
 		Status: v1alpha1.PluginStatus{
-			Manifest: &v1alpha1.PluginManifest{
+			Manifests: map[string]*v1alpha1.PluginManifest{v1alpha1.PluginFormatClaudePlugin: {
 				Commands: &v1alpha1.CommandsField{Map: map[string]v1alpha1.CommandEntry{
 					"docs": {Description: "Search documentation"},
 					"page": {Description: "Open a page"},
 				}},
-			},
+			}},
 		},
 	}
 

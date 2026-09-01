@@ -44,18 +44,6 @@ func ParseManifests(b *CanonicalBundle) (map[string]*v1alpha1.PluginManifest, er
 	return out, nil
 }
 
-// ParseManifest returns the single preferred manifest, favouring the
-// claude-plugin location when the bundle ships both.
-//
-// Deprecated: use ParseManifests, which is lossless for dual-format bundles.
-func ParseManifest(b *CanonicalBundle) (*v1alpha1.PluginManifest, error) {
-	manifests, err := ParseManifests(b)
-	if err != nil {
-		return nil, err
-	}
-	return v1alpha1.PluginStatus{Manifests: manifests}.PreferredManifest(), nil
-}
-
 func unmarshalManifest(data []byte, atPath string) (*v1alpha1.PluginManifest, error) {
 	var m v1alpha1.PluginManifest
 	if err := json.Unmarshal(data, &m); err != nil {

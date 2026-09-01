@@ -186,7 +186,7 @@ func (p *Plugin) UnmarshalSpec(data json.RawMessage) error {
 }
 
 // MarshalStatus serializes the typed PluginStatus: the embedded Status via the
-// storage codec, with the server-determined ResolvedSource/Manifest/Inventory
+// storage codec, with the server-determined ResolvedSource/Manifests/Inventory
 // spliced onto the same object. Nil custom fields are omitted (no stray nulls)
 // so the store's patch-skip byte comparison stays stable.
 func (p *Plugin) MarshalStatus() (json.RawMessage, error) {
@@ -210,11 +210,6 @@ func (p *Plugin) MarshalStatus() (json.RawMessage, error) {
 	}
 	if len(p.Status.Manifests) > 0 {
 		if m["manifests"], err = json.Marshal(p.Status.Manifests); err != nil {
-			return nil, err
-		}
-	}
-	if p.Status.Manifest != nil {
-		if m["manifest"], err = json.Marshal(p.Status.Manifest); err != nil {
 			return nil, err
 		}
 	}
@@ -243,7 +238,7 @@ func (p *Plugin) UnmarshalStatus(data json.RawMessage) error {
 		ResolvedSource *PluginResolvedSource      `json:"resolvedSource"`
 		Formats        []string                   `json:"formats"`
 		Manifests      map[string]*PluginManifest `json:"manifests"`
-		Manifest       *PluginManifest            `json:"manifest"`
+		LegacyManifest *PluginManifest            `json:"manifest"`
 		MCPServerFiles []string                   `json:"mcpServerFiles"`
 		Inventory      *PluginInventory           `json:"inventory"`
 	}
@@ -253,8 +248,21 @@ func (p *Plugin) UnmarshalStatus(data json.RawMessage) error {
 	p.Status.ResolvedSource, p.Status.Inventory = custom.ResolvedSource, custom.Inventory
 	p.Status.Formats, p.Status.Manifests = custom.Formats, custom.Manifests
 	p.Status.MCPServerFiles = custom.MCPServerFiles
-	p.Status.Manifest = custom.Manifest
+	adoptLegacyPluginManifest(&p.Status, custom.LegacyManifest)
 	return nil
+}
+
+// adoptLegacyPluginManifest reads the removed status.manifest key into the
+// Manifests map. Plugins resolved before that field was removed persist a
+// manifest and no manifests, and the writer never emits the old key again — so
+// without this they would read as manifest-less, and the marketplace would drop
+// their description and version, until the controller happened to re-reconcile
+// them. Delete once no stored status can predate the removal.
+func adoptLegacyPluginManifest(status *PluginStatus, legacy *PluginManifest) {
+	if legacy == nil || len(status.Manifests) > 0 {
+		return
+	}
+	status.Manifests = map[string]*PluginManifest{PluginFormatClaudePlugin: legacy}
 }
 
 func (p *Prompt) GetMetadata() *ObjectMeta { return &p.Metadata }

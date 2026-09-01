@@ -35,15 +35,6 @@ type PluginSpec struct {
 	// absolute https:// URL or a root-relative path served by the UI.
 	IconURL string `json:"iconUrl,omitempty" yaml:"iconUrl,omitempty"`
 
-	// Harnesses is retained for one release so existing Plugin resources
-	// continue to decode and round-trip without data loss.
-	//
-	// Deprecated: bundle format is server-derived, not user-declared. The
-	// controller scans the source and records what it found in
-	// status.formats; deploy-time adapters gate on that. This field informs
-	// no decision and is removed in the next release.
-	Harnesses []string `json:"harnesses,omitempty" yaml:"harnesses,omitempty" deprecated:"true"`
-
 	// Source is where the bundle is ingested from, pinned (git commit / OCI
 	// digest) so a published tag is reproducible.
 	Source *PluginSource `json:"source,omitempty" yaml:"source,omitempty"`
@@ -76,12 +67,6 @@ type PluginStatus struct {
 	// Manifests are the parsed manifests keyed by the format they were read
 	// from (see PluginFormat*). A dual-format bundle records both, losslessly.
 	Manifests map[string]*PluginManifest `json:"manifests,omitempty" yaml:"manifests,omitempty"`
-	// Manifest is the canonical typed plugin.json parsed from the source,
-	// preferring the claude-plugin location when the bundle ships both.
-	//
-	// Deprecated: superseded by Manifests, which is lossless for dual-format
-	// bundles. Retained for one release; removed in the next.
-	Manifest *PluginManifest `json:"manifest,omitempty" yaml:"manifest,omitempty" deprecated:"true"`
 	// MCPServerFiles are the MCP declaration files the bundle actually ships,
 	// sorted — ".mcp.json" (claude-plugin) and/or "mcp.json" (agent-plugins).
 	//
@@ -101,18 +86,13 @@ type PluginStatus struct {
 //
 // Prefer this over reading Manifests directly unless the caller genuinely cares
 // which format it got.
-//
-// It falls back to the deprecated single Manifest field, which is what makes
-// the deprecation window safe: Plugins persisted before this release carry
-// manifest but not manifests, and would otherwise read as manifest-less until
-// the controller happened to reconcile them again.
 func (s PluginStatus) PreferredManifest() *PluginManifest {
 	for _, format := range []string{PluginFormatClaudePlugin, PluginFormatAgentPlugins} {
 		if m, ok := s.Manifests[format]; ok {
 			return m
 		}
 	}
-	return s.Manifest
+	return nil
 }
 
 // Plugin bundle formats recorded in PluginStatus.Formats. Which formats a

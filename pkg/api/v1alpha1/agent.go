@@ -40,24 +40,15 @@ type AgentSpec struct {
 	// container) and/or Repository (the source code).
 	Source *AgentSource `json:"source,omitempty" yaml:"source,omitempty"`
 
-	// CompatibleHarnesses is retained for one release so existing Agent
-	// resources continue to decode and round-trip without data loss.
-	//
-	// Deprecated: plugin format compatibility is owned by the Plugin, not the
-	// Agent. The Plugin controller records the bundle formats it detected in
-	// status.formats, and the deploy target gates on those. This field is
-	// removed in the next release; see the write-time check in
-	// agent_validate.go, which moves to deploy time with it.
-	CompatibleHarnesses []HarnessCompatibility `json:"compatibleHarnesses,omitempty" yaml:"compatibleHarnesses,omitempty" deprecated:"true"`
-
 	// Composition — top-level, harness-agnostic references to what the agent
 	// is assembled from. The selected Deployment harness materializes what it
 	// supports and drops-with-warning the rest (capability matrix). Plugins,
-	// Skills, and Instructions require compatibleHarnesses because a prebuilt
-	// Image cannot consume them by itself. MCPServers flow to harness runtimes
-	// and remain available to any other runtime that supports MCP. Each ref's
-	// Kind defaults to the field's resource kind; empty Tag means "resolve
-	// latest at reference time".
+	// Skills, and Instructions need a harness at deploy time: a prebuilt Image
+	// cannot consume them by itself, and the deploy target says so rather than
+	// the Agent declaring it up front. MCPServers flow to harness runtimes and
+	// remain available to any other runtime that supports MCP. Each ref's Kind
+	// defaults to the field's resource kind; empty Tag means "resolve latest at
+	// reference time".
 	Plugins      []ResourceRef `json:"plugins,omitempty" yaml:"plugins,omitempty"`
 	Skills       []ResourceRef `json:"skills,omitempty" yaml:"skills,omitempty"`
 	Instructions *ResourceRef  `json:"instructions,omitempty" yaml:"instructions,omitempty"`
@@ -73,8 +64,7 @@ func (s AgentSpec) HasLegacyModelConfiguration() bool {
 }
 
 // AgentSource is the distribution origin of a bring-your-own container/source
-// agent. Harness-based deployments select a compatible harness from
-// AgentSpec.CompatibleHarnesses at Deployment time.
+// agent. Harness-based deployments name their harness on the Deployment.
 type AgentSource struct {
 	// Image is the OCI container image reference that runs the agent.
 	// Format: <registry>/<name>:<tag> (e.g. ghcr.io/owner/agent:1.0.0).
@@ -97,11 +87,3 @@ const (
 	AgentProtocolHTTP            AgentProtocol = "HTTP"
 	AgentProtocolOpenAIResponses AgentProtocol = "OpenAIResponses"
 )
-
-// HarnessCompatibility declares one harness family this Agent can run under.
-// Rollout policy selection lives on Deployment so the same Agent can be rolled
-// out with different compatible harnesses.
-type HarnessCompatibility struct {
-	// Type is the harness family, e.g. "claude-code", "codex", "opencode".
-	Type string `json:"type" yaml:"type"`
-}

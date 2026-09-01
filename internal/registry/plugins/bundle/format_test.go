@@ -132,13 +132,11 @@ func TestParseManifestsDualFormat(t *testing.T) {
 	if got := manifests[v1alpha1.PluginFormatAgentPlugins].Schema; got == "" {
 		t.Error("agent-plugins manifest lost its $schema")
 	}
-	// The deprecated single field prefers the Claude side.
-	preferred, err := ParseManifest(b)
-	if err != nil {
-		t.Fatalf("ParseManifest: %v", err)
-	}
-	if preferred.Name != "claude-side" {
-		t.Errorf("ParseManifest() = %q, want %q", preferred.Name, "claude-side")
+	// Single-manifest consumers get the Claude side, because that is what
+	// every current harness actually reads.
+	preferred := v1alpha1.PluginStatus{Manifests: manifests}.PreferredManifest()
+	if preferred == nil || preferred.Name != "claude-side" {
+		t.Errorf("PreferredManifest() = %+v, want the claude-side manifest", preferred)
 	}
 }
 

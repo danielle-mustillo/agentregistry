@@ -60,25 +60,28 @@ func TestBuildInventoryBestEffortOnMalformed(t *testing.T) {
 	}
 }
 
-func TestParseManifest(t *testing.T) {
+func TestParseManifests(t *testing.T) {
 	// Absent manifest -> nil, no error.
-	if m, err := ParseManifest(&CanonicalBundle{Files: map[string][]byte{"SKILL.md": []byte("x")}}); err != nil || m != nil {
+	if m, err := ParseManifests(&CanonicalBundle{Files: map[string][]byte{"SKILL.md": []byte("x")}}); err != nil || m != nil {
 		t.Fatalf("absent manifest: got (%v, %v), want (nil, nil)", m, err)
 	}
 	// Real plugin.json -> typed manifest.
 	b := &CanonicalBundle{Files: map[string][]byte{
-		ManifestPath: []byte(`{"name":"company-deploy","version":"1.2.0","author":{"name":"Maya"},"keywords":["deploy"]}`),
+		ClaudeManifestPath: []byte(`{"name":"company-deploy","version":"1.2.0","author":{"name":"Maya"},"keywords":["deploy"]}`),
 	}}
-	m, err := ParseManifest(b)
+	manifests, err := ParseManifests(b)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
+	m := manifests[v1alpha1.PluginFormatClaudePlugin]
 	if m == nil || m.Name != "company-deploy" || m.Version != "1.2.0" || m.Author == nil || m.Author.Name != "Maya" {
 		t.Fatalf("typed manifest not parsed: %+v", m)
 	}
-	// Malformed manifest -> error (fail closed).
-	bad := &CanonicalBundle{Files: map[string][]byte{ManifestPath: []byte("{not json")}}
-	if _, err := ParseManifest(bad); err == nil {
+	// Malformed manifest -> error (fail closed). Only the claude-plugin path
+	// fails closed; a malformed ROOT plugin.json is indistinguishable from an
+	// unrelated one and is skipped instead (see format_test.go).
+	bad := &CanonicalBundle{Files: map[string][]byte{ClaudeManifestPath: []byte("{not json")}}
+	if _, err := ParseManifests(bad); err == nil {
 		t.Fatal("expected error for malformed manifest")
 	}
 }

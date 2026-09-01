@@ -30,13 +30,6 @@ const (
 	agentPluginsSchemaPrefix = "https://agent-plugins.org/schemas/"
 )
 
-// ManifestPath is the canonical location of the plugin manifest within a
-// bundle.
-//
-// Deprecated: use ClaudeManifestPath, or AgentPluginsManifestPath for the
-// agent-plugins layout.
-const ManifestPath = ClaudeManifestPath
-
 // claudeComponentDirs are the directories Claude auto-discovers when a bundle
 // ships no manifest. Their presence is what makes a manifest-less bundle a
 // claude-plugin bundle rather than an unrecognizable one.

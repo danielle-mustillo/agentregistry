@@ -40,19 +40,45 @@ func TestAgentDisplayMode(t *testing.T) {
 			want: "source",
 		},
 		{
-			name: "harness compatibility",
+			name: "plugin ref needs a harness",
 			spec: v1alpha1.AgentSpec{
-				CompatibleHarnesses: []v1alpha1.HarnessCompatibility{{Type: "claude-code"}},
+				Plugins: []v1alpha1.ResourceRef{{Name: "reviewer"}},
 			},
 			want: "harness",
 		},
 		{
-			name: "source and harness compatibility",
+			name: "skill ref needs a harness",
 			spec: v1alpha1.AgentSpec{
-				Source:              &v1alpha1.AgentSource{Image: "ghcr.io/example/agent:v1"},
-				CompatibleHarnesses: []v1alpha1.HarnessCompatibility{{Type: "claude-code"}},
+				Skills: []v1alpha1.ResourceRef{{Name: "summarize"}},
+			},
+			want: "harness",
+		},
+		{
+			name: "instructions ref needs a harness",
+			spec: v1alpha1.AgentSpec{
+				Instructions: &v1alpha1.ResourceRef{Name: "system-prompt"},
+			},
+			want: "harness",
+		},
+		{
+			name: "source and composition refs",
+			spec: v1alpha1.AgentSpec{
+				Source:  &v1alpha1.AgentSource{Image: "ghcr.io/example/agent:v1"},
+				Plugins: []v1alpha1.ResourceRef{{Name: "reviewer"}},
 			},
 			want: "source+harness",
+		},
+		{
+			// MCPServers flow to any MCP-capable runtime, harness or not, so
+			// they are the one composition-adjacent ref that does not imply a
+			// harness. Reporting "harness" here would send a BYO agent author
+			// looking for one they do not need.
+			name: "mcp server refs alone do not need a harness",
+			spec: v1alpha1.AgentSpec{
+				Source:     &v1alpha1.AgentSource{Image: "ghcr.io/example/agent:v1"},
+				MCPServers: []v1alpha1.ResourceRef{{Name: "github"}},
+			},
+			want: "source",
 		},
 	}
 
@@ -69,9 +95,9 @@ func TestAgentRowIncludesModeAndDescription(t *testing.T) {
 	agent := &v1alpha1.Agent{
 		Metadata: v1alpha1.ObjectMeta{Name: "reviewer", Tag: "stable"},
 		Spec: v1alpha1.AgentSpec{
-			Description:         "Reviews pull requests",
-			Source:              &v1alpha1.AgentSource{Image: "ghcr.io/example/reviewer:v1"},
-			CompatibleHarnesses: []v1alpha1.HarnessCompatibility{{Type: "codex"}},
+			Description: "Reviews pull requests",
+			Source:      &v1alpha1.AgentSource{Image: "ghcr.io/example/reviewer:v1"},
+			Skills:      []v1alpha1.ResourceRef{{Name: "code-review"}},
 		},
 	}
 
