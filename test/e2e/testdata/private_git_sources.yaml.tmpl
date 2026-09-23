@@ -24,6 +24,7 @@ metadata:
   name: {{ .PluginAuthName }}
 spec:
   title: E2E Private Plugin
+  type: claude-plugin
   source:
     type: git
     git:
@@ -40,6 +41,7 @@ metadata:
   name: {{ .PluginInvalidAuthName }}
 spec:
   title: E2E Private Plugin Invalid Credentials
+  type: claude-plugin
   source:
     type: git
     git:
@@ -56,6 +58,7 @@ metadata:
   name: {{ .PluginAnonName }}
 spec:
   title: E2E Private Plugin Anonymous Control
+  type: claude-plugin
   source:
     type: git
     git:

@@ -3,10 +3,17 @@
 -- registry read until now, and every harness loads it, so no working
 -- Deployment starts failing the deploy-time compatibility check.
 --
--- content_hash is deliberately left alone. Reproducing the Go canonical JSON
--- digest in SQL is not possible, and a stale hash only costs one extra
--- generation bump the next time an author re-applies the same intent.
+-- generation is deliberately NOT bumped. The backfill changes nothing the
+-- Plugin controller resolves, and a bump would put generation ahead of
+-- status.observedGeneration on every row at once. That hides each plugin from
+-- marketplace.json (pkg/pluginmarketplace.FromPlugin skips a plugin whose
+-- status has not caught up) and re-resolves every git source on upgrade. The
+-- spec content change alone moves each Deployment's desired fingerprint, which
+-- is the redeploy this release plans for.
+--
+-- content_hash is left alone too. The Go canonical-JSON digest cannot be
+-- reproduced in SQL. The cost is that the first re-apply of otherwise
+-- unchanged intent counts as a real write instead of an UpsertNoOp.
 UPDATE plugins
-SET spec = jsonb_set(spec, '{type}', '"claude-plugin"'::jsonb),
-    generation = generation + 1
+SET spec = jsonb_set(spec, '{type}', '"claude-plugin"'::jsonb)
 WHERE NOT (spec ? 'type');
