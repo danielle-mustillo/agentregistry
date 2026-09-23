@@ -37,7 +37,8 @@ import (
 //
 // Adapters with expensive Apply paths can also implement
 // DeploymentDesiredFingerprinter to make unchanged reconciles cheap after the
-// same resolved input has already been accepted. Adapters that can enumerate
+// same resolved input has already been accepted. Adapters that can refuse an
+// input outright implement DeploymentApplyGate. Adapters that can enumerate
 // provider-observed workloads implement DeploymentDiscoverySource separately;
 // discovery is intentionally opt-in and is not part of the lifecycle contract.
 type DeploymentAdapter interface {
@@ -158,6 +159,20 @@ type LogLine struct {
 	Timestamp time.Time
 	Stream    string // "stdout" | "stderr" | runtime-specific
 	Line      string
+}
+
+// DeploymentApplyGate is an optional adapter capability that refuses a resolved
+// Deployment input before apply. The reconciler records the rejection as a
+// Ready=False condition and leaves the runtime untouched.
+type DeploymentApplyGate interface {
+	GateApply(ctx context.Context, in ApplyInput) (*ApplyRejection, error)
+}
+
+// ApplyRejection is why an adapter refuses a resolved Deployment input. Reason
+// is the Ready condition reason; Message explains it to an operator.
+type ApplyRejection struct {
+	Reason  string
+	Message string
 }
 
 // DeploymentDiscoverySource is an optional adapter capability for runtimes

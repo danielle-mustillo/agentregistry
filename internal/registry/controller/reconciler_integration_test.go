@@ -743,3 +743,69 @@ func (a *recordingDeploymentAdapter) Logs(context.Context, types.LogsInput) (<-c
 	close(ch)
 	return ch, nil
 }
+
+// gatingDeploymentAdapter refuses a resolved input before apply. A nil
+// rejection means the gate passes.
+type gatingDeploymentAdapter struct {
+	*recordingDeploymentAdapter
+	rejection *types.ApplyRejection
+}
+
+func (a *gatingDeploymentAdapter) GateApply(context.Context, types.ApplyInput) (*types.ApplyRejection, error) {
+	return a.rejection, nil
+}
+
+func TestDeploymentController_ApplyGate(t *testing.T) {
+	rejection := &types.ApplyRejection{
+		Reason:  "PluginIncompatible",
+		Message: "plugin notes is agent-plugins, Claude Code loads claude-plugin",
+	}
+	tests := []struct {
+		name       string
+		rejection  *types.ApplyRejection
+		wantApply  int32
+		wantReason string
+		wantStatus v1alpha1.ConditionStatus
+	}{
+		{
+			name:       "rejected input never reaches the adapter",
+			rejection:  rejection,
+			wantApply:  0,
+			wantReason: rejection.Reason,
+			wantStatus: v1alpha1.ConditionFalse,
+		},
+		{
+			name:       "accepted input applies as usual",
+			rejection:  nil,
+			wantApply:  1,
+			wantReason: "Applied",
+			wantStatus: v1alpha1.ConditionTrue,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			stores := newControllerTestStores(t)
+			seedMCPServer(t, stores, "weather")
+			seedDeployment(t, stores, "gated", v1alpha1.DesiredStateDeployed)
+
+			base := &recordingDeploymentAdapter{}
+			adapter := &gatingDeploymentAdapter{recordingDeploymentAdapter: base, rejection: tt.rejection}
+			controller := newDeploymentTestController(stores, adapter)
+			_, err := controller.FullReconcile(ctx)
+			require.NoError(t, err)
+
+			processed, err := controller.RunOnce(ctx)
+			require.NoError(t, err)
+			require.Equal(t, 1, processed)
+			require.Equal(t, tt.wantApply, base.applyCalls.Load())
+
+			got := loadDeployment(t, stores, "gated")
+			ready := got.Status.GetCondition("Ready")
+			require.NotNil(t, ready)
+			require.Equal(t, tt.wantStatus, ready.Status)
+			require.Equal(t, tt.wantReason, ready.Reason)
+		})
+	}
+}

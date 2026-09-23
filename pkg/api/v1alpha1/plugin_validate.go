@@ -19,6 +19,7 @@ func validatePluginSpec(s *PluginSpec) FieldErrors {
 	var errs FieldErrors
 	errs.Append("spec.title", validateTitle(s.Title))
 	errs.Append("spec.iconUrl", validateIconURL(s.IconURL))
+	errs.Append("spec.type", validatePluginType(s.Type))
 
 	// Source is required: it is the pointer the controller resolves and pins.
 	if s.Source == nil {
@@ -29,6 +30,20 @@ func validatePluginSpec(s *PluginSpec) FieldErrors {
 		}
 	}
 	return errs
+}
+
+// validatePluginType requires the author-declared layout. The value drives the
+// deploy-time compatibility check, so an absent one cannot be guessed.
+func validatePluginType(t PluginType) error {
+	switch t {
+	case PluginTypeClaudePlugin, PluginTypeAgentPlugins:
+		return nil
+	case "":
+		return fmt.Errorf("%w", ErrRequiredField)
+	default:
+		return fmt.Errorf("%w: must be %q or %q, got %q", ErrInvalidFormat,
+			PluginTypeClaudePlugin, PluginTypeAgentPlugins, t)
+	}
 }
 
 // isFullCommitSHA reports whether s is a full 40-character hex commit SHA.

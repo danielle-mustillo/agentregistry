@@ -148,19 +148,13 @@ func agentRow(agent *v1alpha1.Agent) []string {
 	}
 }
 
+// agentDisplayMode reports whether the Agent ships its own image. The Deployment
+// picks harness or BYO mode, so the Agent no longer declares one.
 func agentDisplayMode(spec v1alpha1.AgentSpec) string {
-	hasSource := spec.Source != nil && spec.Source.Image != ""
-	hasHarness := len(spec.CompatibleHarnesses) > 0
-	switch {
-	case hasSource && hasHarness:
-		return "source+harness"
-	case hasSource:
+	if spec.Source != nil && spec.Source.Image != "" {
 		return "source"
-	case hasHarness:
-		return "harness"
-	default:
-		return "<none>"
 	}
+	return "<none>"
 }
 
 func mcpRow(server *v1alpha1.MCPServer) []string {

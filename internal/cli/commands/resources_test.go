@@ -31,19 +31,11 @@ func TestAgentDisplayMode(t *testing.T) {
 			want: "source",
 		},
 		{
-			name: "harness compatibility",
+			name: "composition alone is not a runnable mode",
 			spec: v1alpha1.AgentSpec{
-				CompatibleHarnesses: []v1alpha1.HarnessCompatibility{{Type: "claude-code"}},
+				Plugins: []v1alpha1.ResourceRef{{Kind: v1alpha1.KindPlugin, Name: "notes"}},
 			},
-			want: "harness",
-		},
-		{
-			name: "source and harness compatibility",
-			spec: v1alpha1.AgentSpec{
-				Source:              &v1alpha1.AgentSource{Image: "ghcr.io/example/agent:v1"},
-				CompatibleHarnesses: []v1alpha1.HarnessCompatibility{{Type: "claude-code"}},
-			},
-			want: "source+harness",
+			want: "<none>",
 		},
 	}
 
@@ -60,13 +52,12 @@ func TestAgentRowIncludesModeAndDescription(t *testing.T) {
 	agent := &v1alpha1.Agent{
 		Metadata: v1alpha1.ObjectMeta{Name: "reviewer", Tag: "stable"},
 		Spec: v1alpha1.AgentSpec{
-			Description:         "Reviews pull requests",
-			Source:              &v1alpha1.AgentSource{Image: "ghcr.io/example/reviewer:v1"},
-			CompatibleHarnesses: []v1alpha1.HarnessCompatibility{{Type: "codex"}},
+			Description: "Reviews pull requests",
+			Source:      &v1alpha1.AgentSource{Image: "ghcr.io/example/reviewer:v1"},
 		},
 	}
 
-	want := []string{"reviewer", "stable", "source+harness", "Reviews pull requests"}
+	want := []string{"reviewer", "stable", "source", "Reviews pull requests"}
 	if got := agentRow(agent); !reflect.DeepEqual(got, want) {
 		t.Fatalf("agentRow() = %#v, want %#v", got, want)
 	}

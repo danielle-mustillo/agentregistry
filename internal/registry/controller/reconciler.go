@@ -93,6 +93,14 @@ func (c *DeploymentController) apply(ctx context.Context, deployment *types.Depl
 		Runtime:    runtime,
 		Getter:     c.Getter,
 	}
+	if rejection, err := gateApply(ctx, adapter, input); err != nil {
+		if errors.Is(err, v1alpha1.ErrDanglingRef) {
+			return c.blockReference(ctx, deployment, err)
+		}
+		return "", "", err
+	} else if rejection != nil {
+		return c.blockDeployment(ctx, deployment, rejection.Reason, rejection.Message)
+	}
 	fingerprintResult, err := desiredApplyFingerprint(ctx, adapter, input)
 	if err != nil {
 		if errors.Is(err, v1alpha1.ErrDanglingRef) {
@@ -209,11 +217,17 @@ func (c *DeploymentController) blockReference(ctx context.Context, deployment *t
 	if cause != nil {
 		message = cause.Error()
 	}
+	return c.blockDeployment(ctx, deployment, "ReferencePending", message)
+}
+
+// blockDeployment records why the Deployment cannot proceed and leaves the
+// runtime alone. The empty fingerprint keeps the last applied one in place.
+func (c *DeploymentController) blockDeployment(ctx context.Context, deployment *types.DeploymentRecord, reason, message string) (string, string, error) {
 	if err := c.persistApplyResult(ctx, deployment, &types.ApplyResult{
 		Conditions: []v1alpha1.Condition{{
 			Type:               "Ready",
 			Status:             v1alpha1.ConditionFalse,
-			Reason:             "ReferencePending",
+			Reason:             reason,
 			Message:            message,
 			ObservedGeneration: deployment.Metadata.Generation,
 		}},
@@ -409,6 +423,14 @@ func adapterSupportsKind(adapter types.DeploymentAdapter, kind string) bool {
 
 type desiredApplyFingerprintResult struct {
 	Fingerprint string
+}
+
+func gateApply(ctx context.Context, adapter types.DeploymentAdapter, input types.ApplyInput) (*types.ApplyRejection, error) {
+	gate, ok := adapter.(types.DeploymentApplyGate)
+	if !ok {
+		return nil, nil
+	}
+	return gate.GateApply(ctx, input)
 }
 
 func desiredApplyFingerprint(ctx context.Context, adapter types.DeploymentAdapter, input types.ApplyInput) (desiredApplyFingerprintResult, error) {

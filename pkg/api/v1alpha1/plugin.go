@@ -35,10 +35,9 @@ type PluginSpec struct {
 	// absolute https:// URL or a root-relative path served by the UI.
 	IconURL string `json:"iconUrl,omitempty" yaml:"iconUrl,omitempty"`
 
-	// Harnesses lists the harness formats this bundle carries native manifests
-	// for (e.g. "claude-code", "codex"). It is informational in this phase;
-	// deploy-time adapters decide which harnesses they can consume.
-	Harnesses []string `json:"harnesses,omitempty" yaml:"harnesses,omitempty"`
+	// Type is the plugin layout the author wrote the bundle in. The registry
+	// trusts the declaration and never reads the bundle to check it.
+	Type PluginType `json:"type" yaml:"type"`
 
 	// Source is where the bundle is ingested from, pinned (git commit / OCI
 	// digest) so a published tag is reproducible.
@@ -79,6 +78,15 @@ type PluginResolvedSource struct {
 	// Digest is the resolved OCI digest, e.g. "sha256:…" (Type=oci; future).
 	Digest string `json:"digest,omitempty" yaml:"digest,omitempty"`
 }
+
+// PluginType is the plugin layout a bundle is written in. A deploy-time check
+// compares it against the layouts the target runtime loads.
+type PluginType string
+
+const (
+	PluginTypeClaudePlugin PluginType = "claude-plugin"
+	PluginTypeAgentPlugins PluginType = "agent-plugins"
+)
 
 // PluginSourceType selects which source sub-struct is set.
 type PluginSourceType string

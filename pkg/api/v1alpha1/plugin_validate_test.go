@@ -20,7 +20,7 @@ func TestPluginValidate_IconURL(t *testing.T) {
 			p := &Plugin{
 				TypeMeta: TypeMeta{APIVersion: GroupVersion, Kind: KindPlugin},
 				Metadata: basePluginMeta(),
-				Spec:     PluginSpec{IconURL: tc.iconURL, Source: source},
+				Spec:     PluginSpec{IconURL: tc.iconURL, Type: PluginTypeClaudePlugin, Source: source},
 			}
 			err := p.Validate()
 			switch {
@@ -49,53 +49,67 @@ func TestPluginValidate(t *testing.T) {
 	}{
 		{
 			name: "valid git source",
-			spec: PluginSpec{Title: "My Plugin", Harnesses: []string{"claude-code"}, Source: gitPinned},
+			spec: PluginSpec{Title: "My Plugin", Type: PluginTypeClaudePlugin, Source: gitPinned},
 		},
 		{
 			name: "valid oci digest source",
-			spec: PluginSpec{Source: &PluginSource{Type: PluginSourceTypeOCI, OCI: &PluginSourceOCI{Reference: "ghcr.io/org/plugin@sha256:" + strings.Repeat("a", 64)}}},
+			spec: PluginSpec{Type: PluginTypeClaudePlugin, Source: &PluginSource{Type: PluginSourceTypeOCI, OCI: &PluginSourceOCI{Reference: "ghcr.io/org/plugin@sha256:" + strings.Repeat("a", 64)}}},
 		},
 		{
 			name:    "missing source",
-			spec:    PluginSpec{Title: "x"},
+			spec:    PluginSpec{Type: PluginTypeClaudePlugin, Title: "x"},
 			wantErr: "spec.source",
 		},
 		{
 			name: "git source with branch only (controller resolves the commit)",
-			spec: PluginSpec{Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{URL: "https://github.com/org/repo", Branch: "main"}}}},
+			spec: PluginSpec{Type: PluginTypeClaudePlugin, Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{URL: "https://github.com/org/repo", Branch: "main"}}}},
 		},
 		{
 			name: "git source with no ref (controller resolves default branch)",
-			spec: PluginSpec{Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{URL: "https://github.com/org/repo"}}}},
+			spec: PluginSpec{Type: PluginTypeClaudePlugin, Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{URL: "https://github.com/org/repo"}}}},
 		},
 		{
 			name:    "git source missing url",
-			spec:    PluginSpec{Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{Commit: fullSHA}}}},
+			spec:    PluginSpec{Type: PluginTypeClaudePlugin, Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{Commit: fullSHA}}}},
 			wantErr: "url",
 		},
 		{
 			name:    "git commit not a full SHA (would never resolve)",
-			spec:    PluginSpec{Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{URL: "https://github.com/org/repo", Commit: "abc123"}}}},
+			spec:    PluginSpec{Type: PluginTypeClaudePlugin, Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{URL: "https://github.com/org/repo", Commit: "abc123"}}}},
 			wantErr: "full 40-character SHA",
 		},
 		{
 			name:    "git branch and commit both set (ambiguous)",
-			spec:    PluginSpec{Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{URL: "https://github.com/org/repo", Branch: "main", Commit: fullSHA}}}},
+			spec:    PluginSpec{Type: PluginTypeClaudePlugin, Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{URL: "https://github.com/org/repo", Branch: "main", Commit: fullSHA}}}},
 			wantErr: "at most one of branch or commit",
 		},
 		{
 			name:    "oci source not digest-pinned",
-			spec:    PluginSpec{Source: &PluginSource{Type: PluginSourceTypeOCI, OCI: &PluginSourceOCI{Reference: "ghcr.io/org/plugin:latest"}}},
+			spec:    PluginSpec{Type: PluginTypeClaudePlugin, Source: &PluginSource{Type: PluginSourceTypeOCI, OCI: &PluginSourceOCI{Reference: "ghcr.io/org/plugin:latest"}}},
 			wantErr: "digest-pinned",
 		},
 		{
 			name:    "unknown source type",
-			spec:    PluginSpec{Source: &PluginSource{Type: "svn"}},
+			spec:    PluginSpec{Type: PluginTypeClaudePlugin, Source: &PluginSource{Type: "svn"}},
 			wantErr: "unknown plugin source type",
 		},
 		{
+			name:    "missing type",
+			spec:    PluginSpec{Source: gitPinned},
+			wantErr: "spec.type",
+		},
+		{
+			name: "agent-plugins type",
+			spec: PluginSpec{Type: PluginTypeAgentPlugins, Source: gitPinned},
+		},
+		{
+			name:    "unknown type",
+			spec:    PluginSpec{Type: "codex-plugin", Source: gitPinned},
+			wantErr: "spec.type",
+		},
+		{
 			name:    "git and oci both set",
-			spec:    PluginSpec{Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{URL: "https://github.com/org/repo", Commit: "abc"}}, OCI: &PluginSourceOCI{Reference: "x"}}},
+			spec:    PluginSpec{Type: PluginTypeClaudePlugin, Source: &PluginSource{Type: PluginSourceTypeGit, Git: &PluginSourceGit{Repository: &Repository{URL: "https://github.com/org/repo", Commit: "abc"}}, OCI: &PluginSourceOCI{Reference: "x"}}},
 			wantErr: "oci must be empty",
 		},
 	}
